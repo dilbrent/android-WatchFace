@@ -2,7 +2,7 @@
 Android WatchFace Sample
 ===================================
 
-A simple sample that demonstrates watch faces and complications for Wear 2.0.
+Mods to example watch faces and complications for Wear 2.0.  Fixed locks for Wear24 and added some minor functionality.
 
 Introduction
 ------------
