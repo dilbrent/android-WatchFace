@@ -24,6 +24,7 @@
     <uses-feature android:name="android.hardware.type.watch"/>
 
     <!-- Required to act as a custom watch face. -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
 
     <!-- Required for complications to receive complication data and open the provider chooser. -->

@@ -28,6 +28,7 @@ import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.os.PowerManager;
 import android.support.v4.content.ContextCompat;
 import android.support.wearable.watchface.CanvasWatchFaceService;
 import android.support.wearable.watchface.WatchFaceService;
@@ -105,6 +106,8 @@ public class DigitalWatchFaceService extends CanvasWatchFaceService {
 
         /** How often {@link #mUpdateTimeHandler} ticks in milliseconds. */
         long mInteractiveUpdateRateMs = NORMAL_UPDATE_RATE_MS;
+
+        protected PowerManager.WakeLock mWakeLock;
 
         /** Handler to update the time periodically in interactive mode. */
         final Handler mUpdateTimeHandler = new Handler() {
@@ -194,6 +197,11 @@ public class DigitalWatchFaceService extends CanvasWatchFaceService {
             }
             super.onCreate(holder);
 
+            final PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            this.mWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "My Tag");
+            this.mWakeLock.acquire();
+
+
             setWatchFaceStyle(new WatchFaceStyle.Builder(DigitalWatchFaceService.this)
                     .setCardPeekMode(WatchFaceStyle.PEEK_MODE_VARIABLE)
                     .setBackgroundVisibility(WatchFaceStyle.BACKGROUND_VISIBILITY_INTERRUPTIVE)
@@ -224,6 +232,7 @@ public class DigitalWatchFaceService extends CanvasWatchFaceService {
 
         @Override
         public void onDestroy() {
+            this.mWakeLock.release();
             mUpdateTimeHandler.removeMessages(MSG_UPDATE_TIME);
             super.onDestroy();
         }
@@ -483,9 +492,9 @@ public class DigitalWatchFaceService extends CanvasWatchFaceService {
 
             // In ambient and mute modes, always draw the first colon. Otherwise, draw the
             // first colon for the first half of each second.
-            if (isInAmbientMode() || mMute || mShouldDrawColons) {
+            //if (isInAmbientMode() || mMute || mShouldDrawColons) {
                 canvas.drawText(COLON_STRING, x, mYOffset, mColonPaint);
-            }
+            //}
             x += mColonWidth;
 
             // Draw the minutes.
@@ -496,9 +505,9 @@ public class DigitalWatchFaceService extends CanvasWatchFaceService {
             // In unmuted interactive mode, draw a second blinking colon followed by the seconds.
             // Otherwise, if we're in 12-hour mode, draw AM/PM
             if (!isInAmbientMode() && !mMute) {
-                if (mShouldDrawColons) {
+                //if (mShouldDrawColons) {
                     canvas.drawText(COLON_STRING, x, mYOffset, mColonPaint);
-                }
+                //}
                 x += mColonWidth;
                 canvas.drawText(formatTwoDigitNumber(
                         mCalendar.get(Calendar.SECOND)), x, mYOffset, mSecondPaint);

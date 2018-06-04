@@ -16,20 +16,34 @@
 
 package com.example.android.wearable.watchface.watchface;
 
+import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.Typeface;
+import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiManager;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.support.wearable.watchface.CanvasWatchFaceService;
 import android.support.wearable.watchface.WatchFaceStyle;
+import android.text.format.Formatter;
 import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.WindowInsets;
 
 import com.example.android.wearable.watchface.R;
+
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.concurrent.TimeUnit;
+import android.os.PowerManager;
+
 
 /**
  * Demonstrates interactive watch face capabilities, i.e., touching the display and registering
@@ -38,10 +52,13 @@ import com.example.android.wearable.watchface.R;
  */
 public class InteractiveWatchFaceService extends CanvasWatchFaceService {
 
+    private static final long TICK_PERIOD_MILLIS = 100;
+    private Handler timeTick;
+
     private static final String TAG = "InteractiveWatchFace";
 
     private static final Typeface BOLD_TYPEFACE =
-            Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD);
+            Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL);
     private static final Typeface NORMAL_TYPEFACE =
             Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL);
 
@@ -55,10 +72,11 @@ public class InteractiveWatchFaceService extends CanvasWatchFaceService {
         private Paint mTextPaint;
         private final Paint mPeekCardBackgroundPaint = new Paint();
 
+        private float mTextSize=10; //default to 10
         private float mXOffset;
         private float mYOffset;
         private float mTextSpacingHeight;
-        private int mScreenTextColor = Color.WHITE;
+        private int mScreenTextColor = Color.GREEN;
 
         private int mTouchCommandTotal;
         private int mTouchCancelCommandTotal;
@@ -66,6 +84,8 @@ public class InteractiveWatchFaceService extends CanvasWatchFaceService {
 
         private int mTouchCoordinateX;
         private int mTouchCoordinateY;
+
+        protected PowerManager.WakeLock mWakeLock;
 
         private final Rect mCardBounds = new Rect();
 
@@ -82,6 +102,13 @@ public class InteractiveWatchFaceService extends CanvasWatchFaceService {
             }
             super.onCreate(holder);
 
+            final PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            this.mWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "My Tag");
+            this.mWakeLock.acquire();
+
+            timeTick = new Handler(Looper.myLooper());
+            startTimerIfNecessary();
+
             /** Accepts tap events via WatchFaceStyle (setAcceptsTapEvents(true)). */
             setWatchFaceStyle(new WatchFaceStyle.Builder(InteractiveWatchFaceService.this)
                     .setCardPeekMode(WatchFaceStyle.PEEK_MODE_VARIABLE)
@@ -91,7 +118,7 @@ public class InteractiveWatchFaceService extends CanvasWatchFaceService {
                     .build());
 
             Resources resources = InteractiveWatchFaceService.this.getResources();
-            mTextSpacingHeight = resources.getDimension(R.dimen.interactive_text_size);
+            mTextSpacingHeight = resources.getDimension(R.dimen.interactive_text_size)+2;
 
             mTextPaint = new Paint();
             mTextPaint.setColor(mScreenTextColor);
@@ -104,6 +131,50 @@ public class InteractiveWatchFaceService extends CanvasWatchFaceService {
 
             mTouchCoordinateX = 0;
             mTouchCoordinateX = 0;
+        }
+
+
+        private void startTimerIfNecessary() {
+            timeTick.removeCallbacks(timeRunnable);
+            //if (isVisible() && !isInAmbientMode()) {
+                timeTick.post(timeRunnable);
+            //}
+        }
+
+        private final Runnable timeRunnable = new Runnable() {
+            @Override
+            public void run() {
+                onSecondTick();
+
+                if (isVisible() && !isInAmbientMode()) {
+                    timeTick.postDelayed(this, TICK_PERIOD_MILLIS);
+                }
+            }
+        };
+
+        private void onSecondTick() {
+            invalidate();
+        }
+
+        private void invalidateIfNecessary() {
+            if (isVisible() && !isInAmbientMode()) {
+                invalidate();
+            }
+        }
+
+        @Override
+        public void onVisibilityChanged(boolean visible) {
+            super.onVisibilityChanged(visible);
+            startTimerIfNecessary();
+        }
+
+
+        @Override
+        public void onDestroy() {
+
+            this.mWakeLock.release();
+            timeTick.removeCallbacks(timeRunnable);
+            super.onDestroy();
         }
 
         @Override
@@ -121,10 +192,10 @@ public class InteractiveWatchFaceService extends CanvasWatchFaceService {
             mYOffset = resources.getDimension(
                     isRound ? R.dimen.interactive_y_offset_round : R.dimen.interactive_y_offset);
 
-            float textSize = resources.getDimension(
+            mTextSize = resources.getDimension(
                     isRound ? R.dimen.interactive_text_size_round : R.dimen.interactive_text_size);
 
-            mTextPaint.setTextSize(textSize);
+            mTextPaint.setTextSize(mTextSize);
         }
 
         @Override
@@ -167,6 +238,7 @@ public class InteractiveWatchFaceService extends CanvasWatchFaceService {
                 mTextPaint.setAntiAlias(antiAlias);
             }
             invalidate();
+            startTimerIfNecessary();
         }
 
         /*
@@ -197,9 +269,54 @@ public class InteractiveWatchFaceService extends CanvasWatchFaceService {
         }
 
         @Override
+        public void onTimeTick() {
+            super.onTimeTick();
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
+                Log.d(TAG, "onTimeTick: ambient = " + isInAmbientMode());
+            }
+            invalidate();
+        }
+
+
+        @Override
         public void onDraw(Canvas canvas, Rect bounds) {
+
+            WifiManager wifiMan = (WifiManager) getSystemService(Context.WIFI_SERVICE);
+            WifiInfo wifiInf = wifiMan.getConnectionInfo();
+            int ipAddress = wifiInf.getIpAddress();
+            String ap=wifiInf.getSSID();
+            String bs=wifiInf.getBSSID();
+            String ip = String.format("%d.%d.%d.%d", (ipAddress & 0xff),(ipAddress >> 8 & 0xff),(ipAddress >> 16 & 0xff),(ipAddress >> 24 & 0xff));
+            DateFormat df = new SimpleDateFormat("MM'/'dd'/'yy");
+            DateFormat tf = new SimpleDateFormat("HH:mm:ss z");
+            Date d=Calendar.getInstance().getTime();
+            String date = df.format(d);
+            String time = tf.format(d);
+
+            int wide=canvas.getWidth();
+            int high=canvas.getHeight();
+
             /** Draws background */
             canvas.drawColor(Color.BLACK);
+
+            mTextPaint.setColor(Color.CYAN);
+
+            canvas.drawText( ip,wide/2-70, mTextSize*2, mTextPaint );
+            canvas.drawText( "S:"+ap,wide/2-90, mTextSize*3, mTextPaint );
+            canvas.drawText( "B:"+bs,wide/2-90, mTextSize*4, mTextPaint );
+
+            canvas.drawText( time, wide/2-68, high-10-mTextSpacingHeight, mTextPaint );
+
+            canvas.drawText( date,wide/2-50,high-10, mTextPaint );
+
+            mTextPaint.setTextSize(mTextSize/2);
+            mTextPaint.setColor(Color.WHITE);
+
+            canvas.drawText( ""+mTouchCoordinateX,5,high/2-10, mTextPaint);
+            canvas.drawText( ""+mTouchCoordinateY,5,high/2-10 + mTextSpacingHeight/2, mTextPaint);
+
+            mTextPaint.setTextSize(mTextSize);
+            mTextPaint.setColor(mScreenTextColor);
 
             canvas.drawText(
                     "TAP: " + String.valueOf(mTapCommandTotal),
@@ -216,15 +333,8 @@ public class InteractiveWatchFaceService extends CanvasWatchFaceService {
             canvas.drawText(
                     "TOUCH: " + String.valueOf(mTouchCommandTotal),
                     mXOffset,
-                    mYOffset + (mTextSpacingHeight * 2),
+                    (float) (mYOffset + (mTextSpacingHeight * 2)),
                     mTextPaint);
-
-            canvas.drawText(
-                    "X, Y: " + mTouchCoordinateX + ", " + mTouchCoordinateY,
-                    mXOffset,
-                    mYOffset + (mTextSpacingHeight * 3),
-                    mTextPaint
-            );
 
             /** Covers area under peek card */
             if (isInAmbientMode()) {

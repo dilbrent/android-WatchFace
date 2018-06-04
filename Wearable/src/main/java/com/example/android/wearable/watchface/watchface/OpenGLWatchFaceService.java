@@ -432,7 +432,7 @@ public class OpenGLWatchFaceService extends Gles2WatchFaceService {
                 GLES20.glClearColor(0, 0, 0, 1);
                 vpMatrix = mAmbientVpMatrix;
             } else {
-                GLES20.glClearColor(0.5f, 0.2f, 0.2f, 1);
+                GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1);
                 final int cameraIndex =
                         (int) ((System.currentTimeMillis() / FRAME_PERIOD_MS) % mNumCameraAngles);
                 vpMatrix = mVpMatrices[cameraIndex];
